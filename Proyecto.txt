@@ -1,0 +1,83 @@
+Proyecto Sistemas Distribuidos- 2024
+
+Sistema distribuido en proyecto: Puente de una via.
+
+ La idea del proyecto del sistema distribuido en el puente de una via es proporcionar una solución para que los vehículos que vienen de diferentes direcciones crucen el puente de una via. Desarrollar un proceso de servidor para gestionar el uso del puente. Supongamos que los automóviles son procesos de cliente que pueden conectarse de forma remota al servidor en cualquier momento. En su programa de simulación, haga que nuevos autos se unan a la sesión de forma remota y cada auto intente cruzar el puente repetidamente. Deben pasar una cantidad de tiempo aleatoria en el puente y deben esperar un período de tiempo aleatorio antes de volver a cruzar. Cada cliente de automóvil puede especificar algunos parámetros como su velocidad, tiempo promedio de retraso después de cruzar, dirección de rumbo inicial, etc. Idealmente, cada cliente debería obtener una interfaz gráfica que muestre el estado actual de la utilización del puente.
+
+Su entrega es un cuaderno electrónico con la siguiente información:
+
+    Diseño de la aplicación que contenga:
+        Casos de Usos
+        Diagramas de interacción con los mensajes de intercambio entre nodos
+        Arquitecturas 
+        Detalle de los Protocolos usados 
+    Código en detalle con su explicación. Incluya videos con explicación de cada pieza del codigo
+    Ejecución. Incluya videos donde se muestre  la ejecución y salida con los monitores y demás gráficos además de videos de la simulación.
+
+Requerimientos: puede seleccionar el lenguaje de programación de su preferencia.
+Debe definir un servidor y varios clientes. La cantidad de clientes  se genera aleatoriamente.
+Debe especificar los protocolos de la capa de transporte y de la capa de aplicación que se usen
+
+Evaluación:  30 puntos
+                       - 15 puntos documento del diseño
+                        - 15 puntos  en implementación ajustada a requerimientos
+
+
+---------------------------------PASOS-------------------------------------------
+1. Arquitectura del sistema
+Servidor central: Gestionará el uso del puente y mantendrá un registro del estado actual del puente (si está ocupado o libre).
+
+Clientes de automóviles: Simularán los vehículos que intentan cruzar el puente.
+
+2. Comunicación cliente-servidor
+Protocolo de comunicación: Utiliza sockets para permitir la comunicación entre los clientes y el servidor.
+
+Mensajes: Define los tipos de mensajes que los clientes enviarán al servidor (solicitud para cruzar el puente, notificación de cruce completo, etc.) y las respuestas del servidor.
+
+3. Lógica del servidor
+Gestión de solicitudes: Implementa un mecanismo para gestionar las solicitudes de los automóviles de manera que solo un vehículo pueda cruzar el puente a la vez.
+
+Cola de espera: Si el puente está ocupado, los automóviles deben esperar en una cola hasta que sea su turno.
+
+4. Lógica del cliente
+Simulación de cruce: Cada cliente debe simular el cruce del puente, pasando un tiempo aleatorio en el puente y esperando un tiempo aleatorio antes de intentar cruzar nuevamente.
+
+Parámetros personalizables: Permite que cada cliente especifique su velocidad, tiempo promedio de retraso y dirección de rumbo inicial.
+
+5. Interfaz gráfica
+Estado del puente: Muestra visualmente si el puente está libre u ocupado.
+
+Vehículos en espera: Muestra la cola de vehículos esperando para cruzar.
+
+Cruce de vehículos: Anima el cruce de los vehículos sobre el puente.
+
+Ejemplo de flujo de trabajo
+Conexión inicial: Los clientes se conectan al servidor al inicio de la simulación.
+
+Solicitud de cruce: Un cliente envía una solicitud para cruzar el puente.
+
+Respuesta del servidor: El servidor responde si el cliente puede cruzar inmediatamente o debe esperar.
+
+Cruce del puente: Si el cliente recibe permiso, simula el cruce del puente.
+
+Notificación de cruce completo: Una vez cruzado el puente, el cliente notifica al servidor.
+
+Repetición: El cliente espera un tiempo aleatorio y luego vuelve a solicitar cruzar el puente.
+
+Consideraciones adicionales
+Concurrencia: Asegúrate de manejar correctamente la concurrencia para evitar problemas como condiciones de carrera.
+
+Tiempos aleatorios: Utiliza funciones de generación de números aleatorios para simular los tiempos de cruce y espera.
+
+Detección de fallos: Implementa mecanismos para manejar posibles fallos en la comunicación entre el servidor y los clientes.
+
+Espero que estas ideas te sean útiles para empezar con tu proyecto. Si necesitas más detalles o ejemplos específicos, estaré encantado de ayudarte.
+
+-----------------------------------------------------------------------------------
+1. Los clientes y los vehículos son los mismo
+2. los clientes deben tener dirección velocidad, tiempo promedio de espera
+3. necesitamos la longitud del puente 
+4. calcular en segundos la duración de cada vehículo en el puente tomando en cuenta la velocidad del vehículo y la longitud 
+5. el proceso es tipo cola con una sola via
+6. Crear un socked con dos array uno en cola y 
+los otros que ya pasaron cada uno con su tiempo de espera.
