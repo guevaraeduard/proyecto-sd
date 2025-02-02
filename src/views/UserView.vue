@@ -2,13 +2,68 @@
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { Status } from '@/types/status'
+import { useSocketStore } from '@/socket/socket'
+
 //Variables
+const socket = useSocketStore()
 const direction = ref('Izquierda')
 const speed = ref(10)
 const delay = ref(0)
 const show_form = ref(true)
 const name = ref('')
 const status = ref<Status>({ state: 'En espera' })
+const shift = ref(false)
+const loading = ref(false)
+const list_vehicles = ref([
+  {
+    id: 1,
+    direction: 'Izquierda',
+    speed: 10,
+    delay: 0,
+    status: 'En espera',
+    shift: false,
+  },
+  {
+    id: 2,
+    direction: 'Derecha',
+    speed: 10,
+    delay: 0,
+    status: 'En espera',
+    shift: false,
+  },
+  {
+    id: 3,
+    direction: 'Izquierda',
+    speed: 10,
+    delay: 0,
+    status: 'En espera',
+    shift: false,
+  },
+  {
+    id: 4,
+    direction: 'Derecha',
+    speed: 10,
+    delay: 0,
+    status: 'En espera',
+    shift: false,
+  },
+  {
+    id: 5,
+    direction: 'Izquierda',
+    speed: 10,
+    delay: 0,
+    status: 'En espera',
+    shift: false,
+  },
+  {
+    id: 6,
+    direction: 'Derecha',
+    speed: 10,
+    delay: 0,
+    status: 'En espera',
+    shift: true,
+  },
+])
 const animation = ref({
   animationDuration: '10s',
   animationIterationCount: 'infinite',
@@ -30,13 +85,19 @@ const startSimulation = () => {
     })
     return
   }
+
+  console.log('startSimulation')
+  socket.connect()
+
+  loading.value = true
+  /*
   if (direction.value == 'Izquierda') {
     animation.value.animationDuration = delay.value + 's'
   } else {
     animationInverse.value.animationDuration = delay.value + 's'
   }
-
-  show_form.value = false
+*/
+  //show_form.value = false
   //Aqui mandar los datos al socket
 }
 </script>
@@ -114,9 +175,16 @@ const startSimulation = () => {
           </div>
 
           <div class="mt-4">
-            <el-button @click="startSimulation" type="primary" size="large" class="w-full"
-              >Continuar</el-button
+            <el-button
+              @click="startSimulation"
+              type="primary"
+              size="large"
+              class="w-full"
+              :disabled="loading"
             >
+              <span class="loading-circle" v-if="loading"></span>
+              <span v-else>Continuar</span>
+            </el-button>
           </div>
         </div>
       </div>
@@ -129,9 +197,10 @@ const startSimulation = () => {
               <template v-if="direction == 'Derecha'">
                 <div class="w-full" :style="animationInverse">
                   <img
-                    src="../../public/img/red.png"
+                    :src="shift ? '../../public/img/red.png' : '../../public/img/green.png'"
                     alt="Mi vehiculo"
                     class="w-24 h-24 absolute"
+                    :class="shift ? '' : 'transform scale-x-[-1]'"
                     style="top: -60px; left: 0"
                   />
                 </div>
@@ -139,9 +208,10 @@ const startSimulation = () => {
               <template v-else>
                 <div class="w-full" :style="animation">
                   <img
-                    src="../../public/img/red.png"
+                    :src="shift ? '../../public/img/red.png' : '../../public/img/green.png'"
                     alt="Mi vehiculo"
-                    class="w-24 h-24 absolute transform scale-x-[-1]"
+                    class="w-24 h-24 absolute"
+                    :class="shift ? 'transform scale-x-[-1]' : ''"
                     style="top: -60px; left: 0"
                   />
                 </div>
@@ -154,7 +224,7 @@ const startSimulation = () => {
             <div class="flex justify-between mt-4">
               <h4 class="text-gray-600 font-semibold">Izq</h4>
 
-              <h4 class="text-gray-600 font-semibold">Longitud del puente: 10Km</h4>
+              <h4 class="text-gray-600 font-semibold">Longitud del puente: 100m</h4>
               <h4 class="text-gray-600 font-semibold">Der</h4>
             </div>
           </div>
@@ -164,98 +234,18 @@ const startSimulation = () => {
               <div class="text-center">
                 <h2 class="text-lg font-semibold">Vehículos en la cola</h2>
                 <div class="flex flex-wrap justify-between max-h-64 overflow-y-auto">
-                  <div class="me-2">
-                    <img
-                      src="../../public/img/red.png"
-                      alt="Mi vehiculo"
-                      class="w-24 h-24 mx-auto"
-                    />
-                  </div>
-                  <div class="me-2">
-                    <img
-                      src="../../public/img/green.png"
-                      alt="vehiculo en cola"
-                      class="w-24 h-24 mx-auto transform scale-x-[-1]"
-                    />
-                  </div>
-                  <div class="me-2">
-                    <img
-                      src="../../public/img/green.png"
-                      alt="vehiculo en cola"
-                      class="w-24 h-24 mx-auto transform scale-x-[-1]"
-                    />
-                  </div>
-                  <div class="me-2">
-                    <img
-                      src="../../public/img/green.png"
-                      alt="vehiculo en cola"
-                      class="w-24 h-24 mx-auto transform scale-x-[-1]"
-                    />
-                  </div>
-                  <div class="me-2">
-                    <img
-                      src="../../public/img/green.png"
-                      alt="vehiculo en cola"
-                      class="w-24 h-24 mx-auto transform scale-x-[-1]"
-                    />
-                  </div>
-                  <div class="me-2">
-                    <img
-                      src="../../public/img/green.png"
-                      alt="vehiculo en cola"
-                      class="w-24 h-24 mx-auto transform scale-x-[-1]"
-                    />
-                  </div>
-                  <div class="me-2">
-                    <img
-                      src="../../public/img/green.png"
-                      alt="vehiculo en cola"
-                      class="w-24 h-24 mx-auto transform scale-x-[-1]"
-                    />
-                  </div>
-                  <div class="me-2">
-                    <img
-                      src="../../public/img/green.png"
-                      alt="vehiculo en cola"
-                      class="w-24 h-24 mx-auto transform scale-x-[-1]"
-                    />
-                  </div>
-                  <div class="me-2">
-                    <img
-                      src="../../public/img/green.png"
-                      alt="vehiculo en cola"
-                      class="w-24 h-24 mx-auto transform scale-x-[-1]"
-                    />
-                  </div>
-                  <div class="me-2">
-                    <img
-                      src="../../public/img/green.png"
-                      alt="vehiculo en cola"
-                      class="w-24 h-24 mx-auto transform scale-x-[-1]"
-                    />
-                  </div>
-                  <div class="me-2">
-                    <img
-                      src="../../public/img/green.png"
-                      alt="vehiculo en cola"
-                      class="w-24 h-24 mx-auto transform scale-x-[-1]"
-                    />
-                  </div>
-                  <div class="me-2">
-                    <img
-                      src="../../public/img/green.png"
-                      alt="vehiculo en cola"
-                      class="w-24 h-24 mx-auto transform scale-x-[-1]"
-                    />
-                  </div>
-
-                  <div>
-                    <img
-                      src="../../public/img/green.png"
-                      alt="vehiculo en cola"
-                      class="w-24 h-24 mx-auto transform scale-x-[-1]"
-                    />
-                  </div>
+                  <template v-for="vehicle in list_vehicles" :key="vehicle.id">
+                    <div class="me-2">
+                      <img
+                        :src="
+                          vehicle.shift ? '../../public/img/red.png' : '../../public/img/green.png'
+                        "
+                        alt="Mi vehiculo"
+                        class="w-24 h-24 mx-auto"
+                        :class="vehicle.shift ? '' : 'transform scale-x-[-1]'"
+                      />
+                    </div>
+                  </template>
                 </div>
               </div>
             </div>
@@ -325,6 +315,24 @@ const startSimulation = () => {
 
   100% {
     transform: translateX(0); /* Mueve el carro a través del ancho del puente */
+  }
+}
+
+.loading-circle {
+  width: 20px; /* Tamaño del círculo */
+  height: 20px; /* Tamaño del círculo */
+  border: 2px solid rgba(255, 255, 255, 0.3); /* Color del borde */
+  border-top: 2px solid #3498db; /* Color del borde superior */
+  border-radius: 50%; /* Hacerlo circular */
+  animation: spin 1s linear infinite; /* Animación de giro */
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg); /* Comienza en 0 grados */
+  }
+  100% {
+    transform: rotate(360deg); /* Gira 360 grados */
   }
 }
 </style>
