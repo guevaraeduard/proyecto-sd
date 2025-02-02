@@ -4,11 +4,22 @@ import { ElMessage } from 'element-plus'
 import type { Status } from '@/types/status'
 //Variables
 const direction = ref('Izquierda')
-const speed = ref(0)
+const speed = ref(10)
 const delay = ref(0)
 const show_form = ref(true)
 const name = ref('')
 const status = ref<Status>({ state: 'En espera' })
+const animation = ref({
+  animationDuration: '10s',
+  animationIterationCount: 'infinite',
+  animationName: 'moveCar',
+})
+
+const animationInverse = ref({
+  animationDuration: '10s',
+  animationIterationCount: 'infinite',
+  animationName: 'moveCarInverse',
+})
 //Funciones
 const startSimulation = () => {
   if (!speed.value || !delay.value || !name.value) {
@@ -19,6 +30,12 @@ const startSimulation = () => {
     })
     return
   }
+  if (direction.value == 'Izquierda') {
+    animation.value.animationDuration = delay.value + 's'
+  } else {
+    animationInverse.value.animationDuration = delay.value + 's'
+  }
+
   show_form.value = false
   //Aqui mandar los datos al socket
 }
@@ -61,12 +78,21 @@ const startSimulation = () => {
           </div>
           <div class="mt-4">
             <p class="text-gray-600 font-semibold">
+              <el-tooltip>
+                <template #content>
+                  <p>
+                    La velocidad del vehículo determina el tiempo que tarda en cruzar el puente.
+                  </p>
+                  <p>La velocidad mínima es de 10 km/h y la máxima es de 120 km/h.</p>
+                </template>
+                <el-icon><InfoFilled /></el-icon>
+              </el-tooltip>
               Velocidad del vehículo <small class="text-xs">(en km/h)</small>:
             </p>
             <el-input-number
               v-model="speed"
-              :min="1"
-              :max="200"
+              :min="10"
+              :max="120"
               controls-position="right"
               size="large"
               class="w-full mt-2"
@@ -97,12 +123,31 @@ const startSimulation = () => {
     </template>
     <template v-else>
       <div class="flex items-center justify-center h-full">
-        <div class="w-full max-w-7xl">
-          <div class="bg-gray-200 p-8">
-            <div class="flex justify-between mt-4">
-              <div class="bg-gray-600 h-8 w-8 rounded-full"></div>
-              <div class="bg-gray-600 h-8 w-8 rounded-full"></div>
+        <div class="w-full max-w-7xl overflow-hidden">
+          <div class="bg-gray-200 p-10">
+            <div class="relative">
+              <template v-if="direction == 'Derecha'">
+                <div class="w-full" :style="animationInverse">
+                  <img
+                    src="../../public/img/red.png"
+                    alt="Mi vehiculo"
+                    class="w-24 h-24 absolute"
+                    style="top: -60px; left: 0"
+                  />
+                </div>
+              </template>
+              <template v-else>
+                <div class="w-full" :style="animation">
+                  <img
+                    src="../../public/img/red.png"
+                    alt="Mi vehiculo"
+                    class="w-24 h-24 absolute transform scale-x-[-1]"
+                    style="top: -60px; left: 0"
+                  />
+                </div>
+              </template>
             </div>
+
             <div class="flex justify-center mt-4">
               <div class="h-1 w-full bg-white border-dashed border-t-2"></div>
             </div>
@@ -244,3 +289,42 @@ const startSimulation = () => {
     </template>
   </div>
 </template>
+<style>
+@keyframes moveCar {
+  0% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(25%);
+  }
+  50% {
+    transform: translateX(50%);
+  }
+  75% {
+    transform: translateX(75%);
+  }
+  100% {
+    transform: translateX(95%); /* Mueve el carro a través del ancho del puente */
+  }
+}
+
+@keyframes moveCarInverse {
+  0% {
+    transform: translateX(95%);
+  }
+  25% {
+    transform: translateX(75%);
+  }
+  50% {
+    transform: translateX(50%);
+  }
+  75% {
+    transform: translateX(25%);
+  }
+
+  100% {
+    transform: translateX(0); /* Mueve el carro a través del ancho del puente */
+  }
+}
+</style>
