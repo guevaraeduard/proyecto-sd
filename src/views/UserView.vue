@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { Status } from '@/types/status'
+//import { socket } from '@/socket/socket'
+import { uid } from 'uid'
+import type { ListVehicle } from '@/types/listVehicle'
 import { useSocketStore } from '@/socket/socket'
 
 //Variables
-const socket = useSocketStore()
 const direction = ref('Izquierda')
 const speed = ref(10)
 const delay = ref(0)
@@ -14,56 +16,8 @@ const name = ref('')
 const status = ref<Status>({ state: 'En espera' })
 const shift = ref(false)
 const loading = ref(false)
-const list_vehicles = ref([
-  {
-    id: 1,
-    direction: 'Izquierda',
-    speed: 10,
-    delay: 0,
-    status: 'En espera',
-    shift: false,
-  },
-  {
-    id: 2,
-    direction: 'Derecha',
-    speed: 10,
-    delay: 0,
-    status: 'En espera',
-    shift: false,
-  },
-  {
-    id: 3,
-    direction: 'Izquierda',
-    speed: 10,
-    delay: 0,
-    status: 'En espera',
-    shift: false,
-  },
-  {
-    id: 4,
-    direction: 'Derecha',
-    speed: 10,
-    delay: 0,
-    status: 'En espera',
-    shift: false,
-  },
-  {
-    id: 5,
-    direction: 'Izquierda',
-    speed: 10,
-    delay: 0,
-    status: 'En espera',
-    shift: false,
-  },
-  {
-    id: 6,
-    direction: 'Derecha',
-    speed: 10,
-    delay: 0,
-    status: 'En espera',
-    shift: true,
-  },
-])
+const id_user = ref('')
+const list_vehicles = ref<ListVehicle[]>([])
 const animation = ref({
   animationDuration: '10s',
   animationIterationCount: 'infinite',
@@ -75,6 +29,9 @@ const animationInverse = ref({
   animationIterationCount: 'infinite',
   animationName: 'moveCarInverse',
 })
+
+const socket = useSocketStore()
+
 //Funciones
 const startSimulation = () => {
   if (!speed.value || !delay.value || !name.value) {
@@ -86,10 +43,24 @@ const startSimulation = () => {
     return
   }
 
-  console.log('startSimulation')
-  socket.connect()
+  if (!id_user.value) {
+    id_user.value = uid()
+    localStorage.setItem('id_user', id_user.value)
+    localStorage.setItem('name', name.value)
+    localStorage.setItem('direction', direction.value)
+    localStorage.setItem('speed', speed.value.toString())
+    localStorage.setItem('delay', delay.value.toString())
+  }
 
   loading.value = true
+  socket.emit('joinLine', {
+    id_user: id_user.value,
+    name: name.value,
+    direction: direction.value,
+    speed: speed.value,
+    delay: delay.value,
+  })
+
   /*
   if (direction.value == 'Izquierda') {
     animation.value.animationDuration = delay.value + 's'
@@ -100,6 +71,34 @@ const startSimulation = () => {
   //show_form.value = false
   //Aqui mandar los datos al socket
 }
+
+onMounted(() => {
+  //localStorage.clear()
+  socket.connect()
+
+  if (localStorage.getItem('id_user')) {
+    id_user.value = localStorage.getItem('id_user')!
+    name.value = localStorage.getItem('name')!
+    direction.value = localStorage.getItem('direction')!
+    speed.value = parseInt(localStorage.getItem('speed')!)
+    delay.value = parseInt(localStorage.getItem('delay')!)
+    startSimulation()
+  }
+
+  socket.on('dataLine', (data: ListVehicle[]) => {
+    list_vehicles.value = data
+    loading.value = false
+    show_form.value = false
+    console.log(data)
+  })
+
+  socket.on('vehicleLine', (data: ListVehicle[]) => {
+    console.log('Datos recibidos de vehicleLine:', data)
+    list_vehicles.value = data
+    loading.value = false
+    show_form.value = false
+  })
+})
 </script>
 
 <template>
@@ -238,11 +237,13 @@ const startSimulation = () => {
                     <div class="me-2">
                       <img
                         :src="
-                          vehicle.shift ? '../../public/img/red.png' : '../../public/img/green.png'
+                          vehicle.id == id_user
+                            ? '../../public/img/red.png'
+                            : '../../public/img/green.png'
                         "
                         alt="Mi vehiculo"
                         class="w-24 h-24 mx-auto"
-                        :class="vehicle.shift ? '' : 'transform scale-x-[-1]'"
+                        :class="vehicle.id == id_user ? '' : 'transform scale-x-[-1]'"
                       />
                     </div>
                   </template>

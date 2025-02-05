@@ -4,13 +4,18 @@ import { defineStore } from 'pinia'
 class SocketManager {
   private socket: Socket | null = null
 
-  constructor() {
-    console.log('eduard')
-  }
+  constructor() {}
 
   public connect() {
     if (!this.socket) {
-      this.socket = io('http://localhost:3000')
+      this.socket = io('http://localhost:3000') // Conectar solo cuando se llama a connect
+      console.log('Socket conectado') // Mensaje de depuración
+
+      // Escuchar eventos aquí después de la conexión
+      this.socket.on('vehicleLine', (data) => {
+        console.log('Datos recibidos de vehicleLine:', data) // Mensaje de depuración
+        // Aquí puedes manejar los datos recibidos
+      })
     }
   }
 
@@ -18,12 +23,15 @@ class SocketManager {
     if (this.socket) {
       this.socket.disconnect()
       this.socket = null // Limpiar la variable
+      console.log('Socket desconectado') // Mensaje de depuración
     }
   }
 
   public on(event: string, callback: (...args: any[]) => void) {
     if (this.socket) {
       this.socket.on(event, callback)
+    } else {
+      console.error('Socket no está inicializado')
     }
   }
 
