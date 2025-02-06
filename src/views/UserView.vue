@@ -17,6 +17,7 @@ const status = ref<Status>({ state: 'En espera' })
 const shift = ref(false)
 const loading = ref(false)
 const id_user = ref('')
+const crossing = ref(false)
 const list_vehicles = ref<ListVehicle[]>([])
 const animation = ref({
   animationDuration: '10s',
@@ -34,7 +35,7 @@ const socket = useSocketStore()
 
 //Funciones
 const startSimulation = () => {
-  if (!speed.value || !delay.value || !name.value) {
+  if (!speed.value || !delay.value || !name.value || !direction.value) {
     ElMessage({
       message: 'Por favor, complete todos los campos.',
       type: 'error',
@@ -60,16 +61,24 @@ const startSimulation = () => {
     speed: speed.value,
     delay: delay.value,
   })
+}
 
-  /*
-  if (direction.value == 'Izquierda') {
-    animation.value.animationDuration = delay.value + 's'
-  } else {
-    animationInverse.value.animationDuration = delay.value + 's'
-  }
-*/
-  //show_form.value = false
-  //Aqui mandar los datos al socket
+const clearSimulation = () => {
+  localStorage.clear()
+
+  socket.emit('leaveLine', {
+    id_user: id_user.value,
+  })
+
+  id_user.value = ''
+  name.value = ''
+  direction.value = ''
+  speed.value = 0
+  delay.value = 0
+  list_vehicles.value = []
+  status.value = { state: 'En espera' }
+  shift.value = false
+  show_form.value = true
 }
 
 onMounted(() => {
@@ -85,8 +94,9 @@ onMounted(() => {
     startSimulation()
   }
 
-  socket.on('dataLine', (data: ListVehicle[]) => {
-    list_vehicles.value = data
+  socket.on('dataLine', (data: { list_vehicles: ListVehicle[]; crossing: boolean }) => {
+    list_vehicles.value = data.list_vehicles
+    crossing.value = data.crossing
     loading.value = false
     show_form.value = false
     console.log(data)
@@ -97,6 +107,23 @@ onMounted(() => {
     list_vehicles.value = data
     loading.value = false
     show_form.value = false
+  })
+
+  socket.on('crossingEvent', (data: { list_vehicles: ListVehicle[]; crossing: ListVehicle }) => {
+    list_vehicles.value = data.list_vehicles
+    if (data.crossing.data.direction == 'Izquierda') {
+      animation.value.animationDuration = data.crossing.time + 's'
+      shift.value = data.crossing.id == id_user.value
+    } else {
+      animationInverse.value.animationDuration = data.crossing.time + 's'
+      shift.value = data.crossing.id == id_user.value
+    }
+    crossing.value = true
+    console.log('Datos recibidos de crossingEvent:', data.crossing)
+  })
+
+  socket.on('updateCrossing', (update_crossing: boolean) => {
+    crossing.value = update_crossing
   })
 })
 </script>
@@ -192,7 +219,7 @@ onMounted(() => {
       <div class="flex items-center justify-center h-full">
         <div class="w-full max-w-7xl overflow-hidden">
           <div class="bg-gray-200 p-10">
-            <div class="relative">
+            <div class="relative" v-if="crossing">
               <template v-if="direction == 'Derecha'">
                 <div class="w-full" :style="animationInverse">
                   <img
@@ -273,6 +300,12 @@ onMounted(() => {
                 <span class="font-semibold">Mi vehículo:</span>
                 <img src="../../public/img/red.png" alt="Mi vehiculo" class="w-16 h-16 mx-auto" />
               </p>
+              <button
+                @click="clearSimulation"
+                class="mt-4 bg-red-500 text-white p-2 rounded-md w-full cursor-pointer"
+              >
+                Salir
+              </button>
             </div>
           </div>
         </div>
