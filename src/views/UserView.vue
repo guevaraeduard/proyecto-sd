@@ -32,7 +32,7 @@ const animationInverse = ref({
 })
 
 const socket = useSocketStore()
-
+const animation_direction = ref('Izquierda')
 //Funciones
 const startSimulation = () => {
   if (!speed.value || !delay.value || !name.value || !direction.value) {
@@ -81,6 +81,27 @@ const clearSimulation = () => {
   show_form.value = true
 }
 
+const updateCrossing = (
+  vehicles: ListVehicle[],
+  active: boolean,
+  animationData: ListVehicle | null,
+) => {
+  list_vehicles.value = vehicles
+  crossing.value = active
+  if (animationData) {
+    animation_direction.value = animationData.data.direction
+    if (animation_direction.value == 'Izquierda') {
+      animation.value.animationDuration = animationData.time + 's'
+      shift.value = animationData.id == id_user.value
+    } else {
+      animationInverse.value.animationDuration = animationData.time + 's'
+      shift.value = animationData.id == id_user.value
+    }
+  }
+
+  console.log(animationData)
+}
+
 onMounted(() => {
   //localStorage.clear()
   socket.connect()
@@ -94,32 +115,27 @@ onMounted(() => {
     startSimulation()
   }
 
-  socket.on('dataLine', (data: { list_vehicles: ListVehicle[]; crossing: boolean }) => {
-    list_vehicles.value = data.list_vehicles
-    crossing.value = data.crossing
-    loading.value = false
-    show_form.value = false
-    console.log(data)
-  })
+  socket.on(
+    'dataLine',
+    (data: {
+      list_vehicles: ListVehicle[]
+      crossing: boolean
+      animation_crossing: ListVehicle | null
+    }) => {
+      updateCrossing(data.list_vehicles, data.crossing, data.animation_crossing)
+      loading.value = false
+      show_form.value = false
+    },
+  )
 
   socket.on('vehicleLine', (data: ListVehicle[]) => {
-    console.log('Datos recibidos de vehicleLine:', data)
     list_vehicles.value = data
     loading.value = false
     show_form.value = false
   })
 
   socket.on('crossingEvent', (data: { list_vehicles: ListVehicle[]; crossing: ListVehicle }) => {
-    list_vehicles.value = data.list_vehicles
-    if (data.crossing.data.direction == 'Izquierda') {
-      animation.value.animationDuration = data.crossing.time + 's'
-      shift.value = data.crossing.id == id_user.value
-    } else {
-      animationInverse.value.animationDuration = data.crossing.time + 's'
-      shift.value = data.crossing.id == id_user.value
-    }
-    crossing.value = true
-    console.log('Datos recibidos de crossingEvent:', data.crossing)
+    updateCrossing(data.list_vehicles, true, data.crossing)
   })
 
   socket.on('updateCrossing', (update_crossing: boolean) => {
@@ -130,6 +146,7 @@ onMounted(() => {
 
 <template>
   <div
+    class="p-2 sm:p-6 md:p-10 overflow-auto max-h-screen"
     style="
       background-image: url('../../public/img/fondo.jpg');
       background-size: cover;
@@ -139,7 +156,7 @@ onMounted(() => {
   >
     <template v-if="show_form">
       <!-- Contenido ad icional aquí -->
-      <div class="flex items-center justify-center h-full">
+      <div class="md:flex items-center justify-center h-screen">
         <div class="bg-white rounded-lg shadow-lg p-6 max-w-xl">
           <div class="text-center">
             <img
@@ -172,7 +189,9 @@ onMounted(() => {
                   </p>
                   <p>La velocidad mínima es de 10 km/h y la máxima es de 120 km/h.</p>
                 </template>
-                <el-icon><InfoFilled /></el-icon>
+                <el-icon>
+                  <InfoFilled />
+                </el-icon>
               </el-tooltip>
               Velocidad del vehículo <small class="text-xs">(en km/h)</small>:
             </p>
@@ -216,11 +235,11 @@ onMounted(() => {
       </div>
     </template>
     <template v-else>
-      <div class="flex items-center justify-center h-full">
+      <div class="md:flex items-center justify-center h-screen">
         <div class="w-full max-w-7xl overflow-hidden">
           <div class="bg-gray-200 p-10">
             <div class="relative" v-if="crossing">
-              <template v-if="direction == 'Derecha'">
+              <template v-if="animation_direction == 'Derecha'">
                 <div class="w-full" :style="animationInverse">
                   <img
                     :src="shift ? '../../public/img/red.png' : '../../public/img/green.png'"
@@ -322,14 +341,18 @@ onMounted(() => {
   25% {
     transform: translateX(25%);
   }
+
   50% {
     transform: translateX(50%);
   }
+
   75% {
     transform: translateX(75%);
   }
+
   100% {
-    transform: translateX(95%); /* Mueve el carro a través del ancho del puente */
+    transform: translateX(95%);
+    /* Mueve el carro a través del ancho del puente */
   }
 }
 
@@ -337,36 +360,49 @@ onMounted(() => {
   0% {
     transform: translateX(95%);
   }
+
   25% {
     transform: translateX(75%);
   }
+
   50% {
     transform: translateX(50%);
   }
+
   75% {
     transform: translateX(25%);
   }
 
   100% {
-    transform: translateX(0); /* Mueve el carro a través del ancho del puente */
+    transform: translateX(0);
+    /* Mueve el carro a través del ancho del puente */
   }
 }
 
 .loading-circle {
-  width: 20px; /* Tamaño del círculo */
-  height: 20px; /* Tamaño del círculo */
-  border: 2px solid rgba(255, 255, 255, 0.3); /* Color del borde */
-  border-top: 2px solid #3498db; /* Color del borde superior */
-  border-radius: 50%; /* Hacerlo circular */
-  animation: spin 1s linear infinite; /* Animación de giro */
+  width: 20px;
+  /* Tamaño del círculo */
+  height: 20px;
+  /* Tamaño del círculo */
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  /* Color del borde */
+  border-top: 2px solid #3498db;
+  /* Color del borde superior */
+  border-radius: 50%;
+  /* Hacerlo circular */
+  animation: spin 1s linear infinite;
+  /* Animación de giro */
 }
 
 @keyframes spin {
   0% {
-    transform: rotate(0deg); /* Comienza en 0 grados */
+    transform: rotate(0deg);
+    /* Comienza en 0 grados */
   }
+
   100% {
-    transform: rotate(360deg); /* Gira 360 grados */
+    transform: rotate(360deg);
+    /* Gira 360 grados */
   }
 }
 </style>

@@ -81,3 +81,5 @@ Espero que estas ideas te sean útiles para empezar con tu proyecto. Si necesita
 5. el proceso es tipo cola con una sola via
 6. Crear un socked con dos array uno en cola y 
 los otros que ya pasaron cada uno con su tiempo de espera.
+-----------------------------------------------------------------------------------
+
