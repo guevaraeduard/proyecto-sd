@@ -82,4 +82,91 @@ Espero que estas ideas te sean útiles para empezar con tu proyecto. Si necesita
 6. Crear un socked con dos array uno en cola y 
 los otros que ya pasaron cada uno con su tiempo de espera.
 -----------------------------------------------------------------------------------
+Casos de Uso Principales
+Conectar Cliente al Servidor:
 
+Actores: Cliente (Automóvil), Servidor.
+
+Descripción: Cada automóvil (proceso cliente) se conecta remotamente al servidor que gestiona la sincronización del puente.
+
+Solicitar Cruzar el Puente:
+
+Actores: Cliente (Automóvil), Servidor.
+
+Descripción: El cliente solicita permiso para cruzar el puente. El servidor verifica si el puente está ocupado y decide si autorizar el cruce o colocar al automóvil en una cola de espera.
+
+Cruzar el Puente:
+
+Actores: Cliente (Automóvil), Servidor.
+
+Descripción: Cuando el cliente obtiene permiso, este cruza el puente durante un tiempo aleatorio. El servidor actualiza el estado del puente.
+
+Esperar y Reintentar:
+
+Actores: Cliente (Automóvil).
+
+Descripción: Después de cruzar el puente, el cliente espera un período de tiempo aleatorio antes de intentar cruzar de nuevo.
+
+Configuración de Parámetros del Cliente:
+
+Actores: Cliente (Automóvil).
+
+Descripción: El usuario puede configurar parámetros como velocidad del automóvil, tiempo promedio de espera y dirección inicial.
+
+Mostrar Estado del Puente:
+
+Actores: Cliente (Automóvil).
+
+Descripción: Cada cliente obtiene una interfaz gráfica que muestra en tiempo real el estado del puente (autos cruzando, cola de espera, etc.).
+lementos del Diagrama de Caso de Uso
+Actores: Cliente (Automóvil), Servidor.
+
+Casos de uso:
+
+Conectar Cliente al Servidor.
+
+Solicitar Cruzar el Puente.
+
+Cruzar el Puente.
+
+Esperar y Reintentar.
+
+Configurar Parámetros del Cliente.
+
+Mostrar Estado del Puente.
+
+Relaciones:
+
+Asociaciones entre actores y casos de uso.
+
+Dependencias entre casos de uso (ejemplo: “Cruzar el Puente” depende de “Solicitar Cruzar el Puente”).
+
+------------------------------------utilizado el el uml---------------------
+
+Descripción de los Elementos del Diagrama
+
+    Sistema de Gestión del Cruce del Puente: Este es el sistema central que controla la utilización del puente.
+
+    Cliente de Automóvil: Representa a cada vehículo que se conecta al sistema para solicitar el cruce del puente.
+
+Casos de Uso
+
+    Unirse al Sistema: El automóvil se conecta al servidor y se registra en el sistema.
+
+    Solicitar Cruce: El automóvil envía una solicitud para cruzar el puente.
+
+    Esperar Turno: El automóvil espera su turno para cruzar el puente, esto puede implicar un período de espera aleatorio.
+
+    Cruzarse el Puente: Una vez que el automóvil tiene el turno, cruza el puente, lo cual implica pasar un tiempo aleatorio en el puente.
+
+    Actualizar Estado: El cliente actualiza la interfaz gráfica con la información sobre el estado del puente y el tiempo de cruce.
+
+    Salir del Sistema: El automóvil se desconecta del sistema después de cruzar el puente.
+
+Consideraciones Adicionales
+
+    Parámetros del Vehículo: Cada cliente puede especificar velocidad, tiempo promedio de retraso y dirección. Esto podría incluirse en las interacciones de los casos de uso.
+
+    Interfaz Gráfica: Se debe desarrollar una interfaz gráfica para que cada cliente vea el estado actual del puente.
+
+Este diagrama y su descripción ofrecen una visión general de cómo se estructuran las interacciones entre los vehículos y el sistema de gestión del puente.
