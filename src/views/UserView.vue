@@ -4,6 +4,7 @@ import VehicleRegistrationForm from '@/components/VehicleRegistrationForm.vue'
 import BridgeSimulation from '@/components/BridgeSimulation.vue'
 import VehicleQueue from '@/components/VehicleQueue.vue'
 import UserInfoPanel from '@/components/UserInfoPanel.vue'
+import ConnectionStatus from '@/components/ConnectionStatus.vue'
 
 const {
   direction,
@@ -23,6 +24,9 @@ const {
   animationInverse,
   animation_direction,
   progress,
+  hasConnectionError,
+  isReconnecting,
+  reconnectAttempts,
   startSimulation,
   clearSimulation
 } = useVehicleSimulation()
@@ -35,6 +39,10 @@ const {
       background-position: center;
       height: 100vh;
     ">
+    <!-- Componente de estado de conexión -->
+    <ConnectionStatus :hasConnectionError="hasConnectionError" :isReconnecting="isReconnecting"
+      :reconnectAttempts="reconnectAttempts" />
+
     <template v-if="show_form">
       <VehicleRegistrationForm v-model:name="name" v-model:direction="direction" v-model:speed="speed"
         v-model:delay="delay" :loading="loading" @submit="startSimulation" />

@@ -1,9 +1,10 @@
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { Status } from '@/types/status'
 import { uid } from 'uid'
 import type { ListVehicle } from '@/types/listVehicle'
 import { useSocketStore } from '@/socket/socket'
+import { useErrorHandler, ErrorSource, ErrorSeverity } from '@/composables/useErrorHandler'
 
 export function useVehicleSimulation() {
   // Variables de estado
@@ -34,27 +35,104 @@ export function useVehicleSimulation() {
   const time_process = ref(false)
   const countdownInterval = ref<number | null>(null)
 
+  const { logError, notifyUser, notifyConnectionStatus, hasConnectionError } = useErrorHandler()
+
+  const reconnectAttempts = ref(0)
+  const maxReconnectAttempts = 5
+  const reconnectInterval = ref<number | null>(null)
+  const isReconnecting = ref(false)
+
   // Funciones
-  const startSimulation = () => {
+  const checkExistingSession = async () => {
+    return new Promise<boolean>((resolve) => {
+      if (localStorage.getItem('id_user')) {
+        const storedId = localStorage.getItem('id_user')!
+
+        socket.emit('checkExistingUser', { id_user: storedId })
+
+        const handleResponse = (exists: boolean) => {
+          if (exists) {
+            id_user.value = storedId
+            name.value = localStorage.getItem('name')!
+            direction.value = localStorage.getItem('direction')!
+            speed.value = parseInt(localStorage.getItem('speed')!)
+            delay.value = parseInt(localStorage.getItem('delay')!)
+
+            socket.emit('rejoinSimulation', {
+              id_user: id_user.value,
+              name: name.value,
+              direction: direction.value,
+              speed: speed.value,
+              delay: delay.value,
+            })
+
+            loading.value = true
+            show_form.value = false
+            resolve(true)
+          } else {
+            localStorage.clear()
+            resolve(false)
+          }
+
+          socket.off('existingUserResponse', handleResponse)
+        }
+
+        socket.on('existingUserResponse', handleResponse)
+
+        setTimeout(() => {
+          socket.off('existingUserResponse', handleResponse)
+          resolve(false)
+        }, 5000)
+      } else {
+        resolve(false)
+      }
+    })
+  }
+
+  const startSimulation = async () => {
     if (!speed.value || !delay.value || !name.value || !direction.value) {
-      ElMessage({
-        message: 'Por favor, complete todos los campos.',
-        type: 'error',
-        grouping: true,
-      })
+      notifyUser('Por favor, complete todos los campos.', ErrorSeverity.ERROR)
       return
     }
 
-    if (!id_user.value) {
-      id_user.value = uid()
-      localStorage.setItem('id_user', id_user.value)
-      localStorage.setItem('name', name.value)
-      localStorage.setItem('direction', direction.value)
-      localStorage.setItem('speed', speed.value.toString())
-      localStorage.setItem('delay', delay.value.toString())
-    }
-
     loading.value = true
+
+    try {
+      if (!id_user.value) {
+        id_user.value = uid()
+        localStorage.setItem('id_user', id_user.value)
+        localStorage.setItem('name', name.value)
+        localStorage.setItem('direction', direction.value)
+        localStorage.setItem('speed', speed.value.toString())
+        localStorage.setItem('delay', delay.value.toString())
+      }
+
+      socket.emit('checkExistingUser', { id_user: id_user.value })
+
+      socket.on('existingUserResponse', (exists: boolean) => {
+        if (exists) {
+          notifyUser(
+            'Ya existe una sesión activa con este usuario. Se cerrará la sesión anterior.',
+            ErrorSeverity.WARNING,
+          )
+
+          socket.emit('forceLeave', { id_user: id_user.value })
+
+          setTimeout(() => {
+            joinSimulation()
+          }, 1000)
+        } else {
+          joinSimulation()
+        }
+      })
+    } catch (error) {
+      loading.value = false
+      logError('Error al unirse a la cola', ErrorSource.SOCKET, ErrorSeverity.ERROR, error)
+      notifyUser('No se pudo conectar al servidor. Intente nuevamente.', ErrorSeverity.ERROR)
+    }
+  }
+
+  const joinSimulation = () => {
     socket.emit('joinLine', {
       id_user: id_user.value,
       name: name.value,
@@ -67,9 +145,13 @@ export function useVehicleSimulation() {
   const clearSimulation = () => {
     localStorage.clear()
 
-    socket.emit('leaveLine', {
-      id_user: id_user.value,
-    })
+    try {
+      socket.emit('leaveLine', {
+        id_user: id_user.value,
+      })
+    } catch (error) {
+      logError('Error al salir de la cola', ErrorSource.SOCKET, ErrorSeverity.WARNING, error)
+    }
 
     id_user.value = ''
     name.value = ''
@@ -154,62 +236,203 @@ export function useVehicleSimulation() {
     }
   }
 
-  // Configuración de sockets y ciclo de vida
-  const setupSockets = () => {
-    socket.connect()
-
-    if (localStorage.getItem('id_user')) {
-      id_user.value = localStorage.getItem('id_user')!
-      name.value = localStorage.getItem('name')!
-      direction.value = localStorage.getItem('direction')!
-      speed.value = parseInt(localStorage.getItem('speed')!)
-      delay.value = parseInt(localStorage.getItem('delay')!)
-      startSimulation()
+  // Manejo de reconexión
+  const attemptReconnect = () => {
+    if (reconnectAttempts.value >= maxReconnectAttempts) {
+      clearReconnectInterval()
+      notifyUser(
+        'No se pudo reconectar al servidor después de varios intentos. Por favor, recargue la página.',
+        ErrorSeverity.ERROR,
+        0, // No desaparece automáticamente
+      )
+      return
     }
 
-    socket.on(
-      'dataLine',
-      (data: {
-        list_vehicles: ListVehicle[]
-        crossing: boolean
-        animation_crossing: ListVehicle | null
-        progress: number
-      }) => {
-        updateCrossing(data.list_vehicles, data.crossing, data.animation_crossing, data.progress)
-        loading.value = false
-        show_form.value = false
-      },
-    )
+    isReconnecting.value = true
+    reconnectAttempts.value++
 
-    socket.on('vehicleLine', (data: ListVehicle[]) => {
-      list_vehicles.value = data
-      loading.value = false
-      show_form.value = false
-      updateState()
-    })
+    try {
+      socket.connect()
+      notifyUser(
+        `Intentando reconectar... (Intento ${reconnectAttempts.value}/${maxReconnectAttempts})`,
+        ErrorSeverity.INFO,
+      )
+    } catch (error) {
+      logError(
+        `Error en intento de reconexión ${reconnectAttempts.value}`,
+        ErrorSource.SOCKET,
+        ErrorSeverity.WARNING,
+        error,
+      )
+    }
+  }
 
-    socket.on(
-      'crossingEvent',
-      (data: { list_vehicles: ListVehicle[]; crossing: ListVehicle; progress: number }) => {
-        updateCrossing(data.list_vehicles, true, data.crossing, data.progress)
-      },
-    )
+  const clearReconnectInterval = () => {
+    if (reconnectInterval.value !== null) {
+      clearInterval(reconnectInterval.value)
+      reconnectInterval.value = null
+    }
+  }
 
-    socket.on('updateCrossing', (update_crossing: boolean) => {
-      crossing.value = update_crossing
-    })
+  const startReconnectProcess = () => {
+    if (reconnectInterval.value === null && !isReconnecting.value) {
+      reconnectAttempts.value = 0
+      reconnectInterval.value = setInterval(attemptReconnect, 5000) // Intenta cada 5 segundos
+      attemptReconnect() // Intenta inmediatamente la primera vez
+    }
+  }
 
-    socket.on('UpdateState', () => {
-      shift.value = false
-      updateState()
-    })
+  const handleConnectionSuccess = () => {
+    isReconnecting.value = false
+    reconnectAttempts.value = 0
+    clearReconnectInterval()
+    notifyConnectionStatus(true)
 
-    socket.on('UpdateDirection', (data: { direction: string; id: string }) => {
-      if (id_user.value == data.id) {
-        direction.value = data.direction
-        localStorage.setItem('direction', direction.value)
+    // Si el usuario ya estaba en la simulación, reenvía los datos
+    if (id_user.value && !show_form.value) {
+      socket.emit('joinLine', {
+        id_user: id_user.value,
+        name: name.value,
+        direction: direction.value,
+        speed: speed.value,
+        delay: delay.value,
+      })
+    }
+  }
+
+  const handleConnectionError = (error: any) => {
+    logError('Error de conexión con el servidor', ErrorSource.SOCKET, ErrorSeverity.ERROR, error)
+    notifyConnectionStatus(false)
+    startReconnectProcess()
+  }
+
+  // Configuración de sockets y ciclo de vida
+  const setupSockets = async () => {
+    try {
+      socket.connect()
+
+      // Configurar manejadores de conexión
+      socket.onConnect(handleConnectionSuccess)
+      socket.onDisconnect(handleConnectionError)
+      socket.onError(handleConnectionError)
+
+      // Verificar si ya existe una sesión
+      const hasExistingSession = await checkExistingSession()
+
+      // Si no hay una sesión existente y hay datos en localStorage, los cargamos
+      if (!hasExistingSession && localStorage.getItem('id_user')) {
+        id_user.value = localStorage.getItem('id_user')!
+        name.value = localStorage.getItem('name')!
+        direction.value = localStorage.getItem('direction')!
+        speed.value = parseInt(localStorage.getItem('speed')!)
+        delay.value = parseInt(localStorage.getItem('delay')!)
       }
-    })
+
+      // Configurar listeners de eventos
+      socket.on(
+        'dataLine',
+        (data: {
+          list_vehicles: ListVehicle[]
+          crossing: boolean
+          animation_crossing: ListVehicle | null
+          progress: number
+        }) => {
+          try {
+            updateCrossing(
+              data.list_vehicles,
+              data.crossing,
+              data.animation_crossing,
+              data.progress,
+            )
+            loading.value = false
+            show_form.value = false
+          } catch (error) {
+            logError(
+              'Error al procesar datos de la cola',
+              ErrorSource.SIMULATION,
+              ErrorSeverity.ERROR,
+              error,
+            )
+          }
+        },
+      )
+
+      socket.on('vehicleLine', (data: ListVehicle[]) => {
+        try {
+          list_vehicles.value = data
+          loading.value = false
+          show_form.value = false
+          updateState()
+        } catch (error) {
+          logError(
+            'Error al procesar lista de vehículos',
+            ErrorSource.SIMULATION,
+            ErrorSeverity.ERROR,
+            error,
+          )
+        }
+      })
+
+      socket.on(
+        'crossingEvent',
+        (data: { list_vehicles: ListVehicle[]; crossing: ListVehicle; progress: number }) => {
+          try {
+            console.log('eduard')
+            updateCrossing(data.list_vehicles, true, data.crossing, data.progress)
+          } catch (error) {
+            logError(
+              'Error al procesar evento de cruce',
+              ErrorSource.SIMULATION,
+              ErrorSeverity.ERROR,
+              error,
+            )
+          }
+        },
+      )
+
+      socket.on('updateCrossing', (update_crossing: boolean) => {
+        crossing.value = update_crossing
+      })
+
+      socket.on('UpdateState', () => {
+        shift.value = false
+        updateState()
+      })
+
+      socket.on('UpdateDirection', (data: { direction: string; id: string }) => {
+        if (id_user.value == data.id) {
+          direction.value = data.direction
+          localStorage.setItem('direction', direction.value)
+        }
+      })
+
+      // Manejar errores de socket
+      socket.onError((error) => {
+        logError(
+          'Error en la comunicación con el servidor',
+          ErrorSource.SOCKET,
+          ErrorSeverity.ERROR,
+          error,
+        )
+      })
+
+      // Añadir listener para manejo de sesiones duplicadas
+      socket.on('duplicateSession', () => {
+        notifyUser(
+          'Tu sesión ha sido cerrada porque se ha iniciado en otro dispositivo.',
+          ErrorSeverity.WARNING,
+        )
+        clearSimulation()
+      })
+    } catch (error) {
+      logError(
+        'Error al configurar la conexión con el servidor',
+        ErrorSource.SOCKET,
+        ErrorSeverity.ERROR,
+        error,
+      )
+      notifyUser('No se pudo establecer conexión con el servidor', ErrorSeverity.ERROR)
+    }
   }
 
   onMounted(() => {
@@ -218,6 +441,8 @@ export function useVehicleSimulation() {
 
   onUnmounted(() => {
     clearCountdown()
+    clearReconnectInterval()
+    socket.disconnect()
   })
 
   return {
@@ -239,6 +464,9 @@ export function useVehicleSimulation() {
     animationInverse,
     animation_direction,
     progress,
+    hasConnectionError,
+    isReconnecting,
+    reconnectAttempts,
 
     // Métodos
     startSimulation,

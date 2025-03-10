@@ -1,64 +1,95 @@
 import { io, Socket } from 'socket.io-client'
 import { defineStore } from 'pinia'
 
-class SocketManager {
-  private socket: Socket | null = null
-
-  constructor() {}
-
-  public connect() {
-    if (!this.socket) {
-      this.socket = io('http://localhost:3000') // Conectar solo cuando se llama a connect
-      console.log('Socket conectado') // Mensaje de depuración
-
-      // Escuchar eventos aquí después de la conexión
-      this.socket.on('vehicleLine', (data) => {
-        console.log('Datos recibidos de vehicleLine:', data) // Mensaje de depuración
-        // Aquí puedes manejar los datos recibidos
-      })
-    }
-  }
-
-  public disconnect() {
-    if (this.socket) {
-      this.socket.disconnect()
-      this.socket = null // Limpiar la variable
-      console.log('Socket desconectado') // Mensaje de depuración
-    }
-  }
-
-  public on(event: string, callback: (...args: any[]) => void) {
-    if (this.socket) {
-      this.socket.on(event, callback)
-    } else {
-      console.error('Socket no está inicializado')
-    }
-  }
-
-  public emit(event: string, ...args: any[]) {
-    if (this.socket) {
-      this.socket.emit(event, ...args)
-    }
-  }
-}
-
-// Nueva tienda de Pinia para manejar el socket
 export const useSocketStore = defineStore('socket', {
   state: () => ({
-    socketManager: new SocketManager(),
+    socket: null as Socket | null,
+    isConnected: false,
+    connectionError: null as Error | null,
   }),
+
   actions: {
     connect() {
-      this.socketManager.connect()
+      if (this.socket) {
+        return
+      }
+
+      try {
+        this.socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000')
+
+        this.socket.on('connect', () => {
+          this.isConnected = true
+          this.connectionError = null
+        })
+
+        this.socket.on('disconnect', () => {
+          this.isConnected = false
+        })
+
+        this.socket.on('connect_error', (error) => {
+          this.isConnected = false
+          this.connectionError = error
+        })
+      } catch (error) {
+        this.connectionError = error as Error
+        throw error
+      }
     },
+
     disconnect() {
-      this.socketManager.disconnect()
+      if (this.socket) {
+        this.socket.disconnect()
+        this.socket = null
+        this.isConnected = false
+      }
     },
+
+    emit(event: string, data?: any) {
+      if (!this.socket) {
+        throw new Error('Socket not connected')
+      }
+
+      this.socket.emit(event, data)
+    },
+
     on(event: string, callback: (...args: any[]) => void) {
-      this.socketManager.on(event, callback)
+      if (!this.socket) {
+        throw new Error('Socket not connected')
+      }
+
+      this.socket.on(event, callback)
     },
-    emit(event: string, ...args: any[]) {
-      this.socketManager.emit(event, ...args)
+
+    off(event: string, callback?: (...args: any[]) => void) {
+      if (!this.socket) {
+        return
+      }
+
+      this.socket.off(event, callback)
+    },
+
+    onConnect(callback: () => void) {
+      if (!this.socket) {
+        throw new Error('Socket not connected')
+      }
+
+      this.socket.on('connect', callback)
+    },
+
+    onDisconnect(callback: (reason: any) => void) {
+      if (!this.socket) {
+        throw new Error('Socket not connected')
+      }
+
+      this.socket.on('disconnect', callback)
+    },
+
+    onError(callback: (error: Error) => void) {
+      if (!this.socket) {
+        throw new Error('Socket not connected')
+      }
+
+      this.socket.on('connect_error', callback)
     },
   },
 })
